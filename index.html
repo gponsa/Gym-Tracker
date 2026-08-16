@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gym">
+<meta name="theme-color" content="#0b0d10">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Gym</title>
+<style>
+  :root{
+    --bg:#0b0d10; --surface:#14181d; --surface2:#1c222a; --line:#2a323c;
+    --text:#e8edf2; --dim:#8b97a5; --accent:#4da3ff; --good:#3ddc84;
+    --warn:#ffb020; --bad:#ff5a5a; --radius:14px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font:16px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+    overscroll-behavior-y:contain}
+  body{padding-top:env(safe-area-inset-top);padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+  button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+  input{font:inherit;color:inherit;background:var(--surface2);border:1px solid var(--line);
+    border-radius:10px;padding:12px;width:100%}
+  input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+
+  header{position:sticky;top:0;z-index:20;background:rgba(11,13,16,.92);
+    backdrop-filter:blur(12px);border-bottom:1px solid var(--line);
+    padding:calc(10px + env(safe-area-inset-top)) 16px 10px;display:flex;
+    align-items:center;justify-content:space-between;gap:12px;margin-top:calc(-1 * env(safe-area-inset-top))}
+  header h1{font-size:17px;margin:0;font-weight:650;letter-spacing:-.01em}
+  .netdot{width:8px;height:8px;border-radius:50%;background:var(--good);flex:none}
+  .netdot.off{background:var(--bad)}
+  .netdot.queued{background:var(--warn)}
+
+  main{padding:16px;max-width:640px;margin:0 auto}
+  .muted{color:var(--dim);font-size:14px}
+  .tiny{font-size:12px;color:var(--dim)}
+
+  nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;
+    grid-template-columns:repeat(4,1fr);background:rgba(11,13,16,.95);
+    backdrop-filter:blur(12px);border-top:1px solid var(--line);
+    padding-bottom:env(safe-area-inset-bottom)}
+  nav button{padding:11px 4px 9px;font-size:11px;color:var(--dim);display:flex;
+    flex-direction:column;align-items:center;gap:3px}
+  nav button.on{color:var(--accent)}
+  nav svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;
+    stroke-linecap:round;stroke-linejoin:round}
+
+  .card{background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--radius);padding:14px;margin-bottom:12px}
+  .card h3{margin:0 0 2px;font-size:16px;font-weight:640;letter-spacing:-.01em}
+  .prescribe{font-size:13px;color:var(--dim);margin-bottom:12px}
+
+  .setrow{display:flex;align-items:center;gap:8px;padding:7px 0;
+    border-top:1px solid var(--line)}
+  .setrow:first-of-type{border-top:none}
+  .setno{width:22px;font-size:12px;color:var(--dim);flex:none;font-variant-numeric:tabular-nums}
+  .val{flex:1;display:flex;align-items:baseline;justify-content:center;gap:3px;
+    background:var(--surface2);border:1px solid var(--line);border-radius:10px;
+    padding:11px 6px;font-variant-numeric:tabular-nums;min-width:0}
+  .val b{font-size:17px;font-weight:640}
+  .val span{font-size:11px;color:var(--dim)}
+  .val:active{background:#232b34}
+  .tick{flex:none;width:52px;height:44px;border-radius:10px;background:var(--surface2);
+    border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
+  .tick svg{width:22px;height:22px;stroke:var(--dim);fill:none;stroke-width:2.4;
+    stroke-linecap:round;stroke-linejoin:round}
+  .setrow.done .val{background:transparent;border-color:transparent;opacity:.5}
+  .setrow.done .tick{background:rgba(61,220,132,.14);border-color:rgba(61,220,132,.35)}
+  .setrow.done .tick svg{stroke:var(--good)}
+
+  .btn{display:block;width:100%;padding:15px;border-radius:12px;background:var(--accent);
+    color:#04121f;font-weight:680;text-align:center;margin-top:8px}
+  .btn.ghost{background:var(--surface2);color:var(--text);border:1px solid var(--line)}
+  .btn.danger{background:transparent;color:var(--bad);border:1px solid rgba(255,90,90,.35)}
+  .btn:disabled{opacity:.4}
+
+  .sheet{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.6);
+    display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .16s}
+  .sheet.open{opacity:1;pointer-events:auto}
+  .sheet>div{width:100%;background:var(--surface);border-radius:20px 20px 0 0;
+    padding:18px 16px calc(18px + env(safe-area-inset-bottom));
+    transform:translateY(14px);transition:transform .16s;max-height:86vh;overflow:auto}
+  .sheet.open>div{transform:none}
+  .stepper{display:flex;align-items:center;gap:10px;margin:10px 0 16px}
+  .stepper button{flex:none;width:56px;height:56px;border-radius:14px;
+    background:var(--surface2);border:1px solid var(--line);font-size:24px;font-weight:600}
+  .stepper button:active{background:#252e38}
+  .stepper .n{flex:1;text-align:center;font-size:32px;font-weight:680;
+    font-variant-numeric:tabular-nums}
+
+  .timer{position:fixed;left:12px;right:12px;bottom:calc(70px + env(safe-area-inset-bottom));
+    z-index:25;background:var(--surface2);border:1px solid var(--line);border-radius:14px;
+    padding:11px 14px;display:none;align-items:center;gap:12px;
+    box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  .timer.on{display:flex}
+  .timer .t{font-size:22px;font-weight:680;font-variant-numeric:tabular-nums;min-width:62px}
+  .timer.done{border-color:var(--good);background:rgba(61,220,132,.12)}
+  .bar{flex:1;height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--accent);width:100%}
+
+  .pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:11px;
+    background:var(--surface2);border:1px solid var(--line);color:var(--dim);margin-right:5px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:13px;color:var(--dim);margin-bottom:6px}
+  .empty{text-align:center;padding:48px 20px;color:var(--dim)}
+  .empty svg{width:44px;height:44px;stroke:var(--line);fill:none;stroke-width:1.5;margin-bottom:12px}
+  .list{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .list button{display:block;width:100%;text-align:left;padding:13px 14px;
+    border-bottom:1px solid var(--line);background:var(--surface)}
+  .list button:last-child{border-bottom:none}
+  .list button:active{background:var(--surface2)}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);
+    bottom:calc(84px + env(safe-area-inset-bottom));z-index:70;background:#e8edf2;color:#0b0d10;
+    padding:10px 16px;border-radius:99px;font-size:14px;font-weight:600;
+    opacity:0;transition:opacity .2s;pointer-events:none;max-width:88vw;text-align:center}
+  .toast.on{opacity:1}
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="title">Today</h1>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span class="tiny" id="netlabel"></span>
+    <span class="netdot" id="netdot"></span>
+  </div>
+</header>
+
+<main id="view"></main>
+
+<div class="timer" id="timer">
+  <span class="t" id="timerT">0:00</span>
+  <span class="bar"><i id="timerBar"></i></span>
+  <button class="tiny" id="timerSkip" style="color:var(--dim);padding:6px 8px">Skip</button>
+</div>
+
+<nav>
+  <button data-tab="today" class="on"><svg viewBox="0 0 24 24"><path d="M6 3v4M18 3v4M3 9h18M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"/></svg>Today</button>
+  <button data-tab="log"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Quick log</button>
+  <button data-tab="body"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v5h-5"/></svg>Body</button>
+  <button data-tab="more"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>More</button>
+</nav>
+
+<div class="sheet" id="sheet"><div id="sheetBody"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ============================================================ config */
+const CFG = {
+  get url(){ return localStorage.getItem('gt_url') || ''; },
+  set url(v){ localStorage.setItem('gt_url', v); },
+  get token(){ return localStorage.getItem('gt_token') || ''; },
+  set token(v){ localStorage.setItem('gt_token', v); },
+  get ready(){ return !!(this.url && this.token); }
+};
+
+/* ============================================================ storage
+   IndexedDB is the source of truth on device. Never localStorage for data:
+   it is synchronous, size-capped and the first thing evicted under pressure. */
+const DB = (()=>{
+  let db;
+  const open = () => new Promise((res,rej)=>{
+    if(db) return res(db);
+    const r = indexedDB.open('gymtracker', 1);
+    r.onupgradeneeded = e => {
+      const d = e.target.result;
+      if(!d.objectStoreNames.contains('kv')) d.createObjectStore('kv');
+      if(!d.objectStoreNames.contains('queue')) d.createObjectStore('queue',{autoIncrement:true});
+    };
+    r.onsuccess = e => { db = e.target.result; res(db); };
+    r.onerror = e => rej(e.target.error);
+  });
+  const tx = async (store, mode) => (await open()).transaction(store, mode).objectStore(store);
+  const p = req => new Promise((res,rej)=>{ req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); });
+  return {
+    async get(k){ return p((await tx('kv','readonly')).get(k)); },
+    async set(k,v){ return p((await tx('kv','readwrite')).put(v,k)); },
+    async del(k){ return p((await tx('kv','readwrite')).delete(k)); },
+    async push(item){ return p((await tx('queue','readwrite')).add(item)); },
+    async all(){
+      const s = await tx('queue','readonly');
+      const keys = await p(s.getAllKeys()), vals = await p(s.getAll());
+      return keys.map((k,i)=>({key:k, item:vals[i]}));
+    },
+    async drop(key){ return p((await tx('queue','readwrite')).delete(key)); },
+    async count(){ return p((await tx('queue','readonly')).count()); }
+  };
+})();
+
+/* ============================================================ network */
+let STATE = null;       // cached server state
+let SESSION = null;     // in-progress session
+let QUEUED = 0;
+
+async function pullState(){
+  if(!CFG.ready) return null;
+  const r = await fetch(`${CFG.url}?action=state&token=${encodeURIComponent(CFG.token)}`,
+                        {redirect:'follow'});
+  const j = await r.json();
+  if(!j.ok) throw new Error(j.error || 'state failed');
+  await DB.set('state', j);
+  return j;
+}
+
+/* POST as text/plain deliberately. Apps Script does not answer CORS preflight
+   OPTIONS; application/json triggers one and every write fails. */
+async function post(body){
+  const r = await fetch(`${CFG.url}?token=${encodeURIComponent(CFG.token)}`, {
+    method:'POST', redirect:'follow',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify(body)
+  });
+  const j = await r.json();
+  if(!j.ok) throw new Error(j.error || 'write failed');
+  return j;
+}
+
+async function enqueue(body){
+  await DB.push(body);
+  QUEUED = await DB.count();
+  paintNet();
+  flush();
+}
+
+let flushing = false;
+async function flush(){
+  if(flushing || !CFG.ready || !navigator.onLine) return;
+  flushing = true;
+  try{
+    const pending = await DB.all();
+    for(const {key,item} of pending){
+      try{ await post(item); await DB.drop(key); }
+      catch(e){ break; }   // stop on first failure, preserve order
+    }
+    QUEUED = await DB.count();
+  } finally { flushing = false; paintNet(); }
+}
+
+/* ============================================================ helpers */
+const $ = s => document.querySelector(s);
+const el = (t,c,x) => { const n=document.createElement(t); if(c)n.className=c;
+  if(x!==undefined)n.textContent=x; return n; };
+const today = () => new Date().toISOString().slice(0,10);
+const nowISO = () => new Date().toISOString();
+const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+let toastT;
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove('on'), 2000);
+}
+
+function paintNet(){
+  const d = $('#netdot'), l = $('#netlabel');
+  // Offline AND queued must both be visible. Showing only "offline" after a
+  // finished session reads as "your work is gone", which is the exact moment
+  // trust in the app is won or lost.
+  if(!navigator.onLine){
+    d.className='netdot off';
+    l.textContent = QUEUED>0 ? `offline · ${QUEUED} queued` : 'offline';
+  }
+  else if(QUEUED>0){ d.className='netdot queued'; l.textContent=QUEUED+' queued'; }
+  else { d.className='netdot'; l.textContent=''; }
+}
+
+/* iOS Safari does not support navigator.vibrate. Audio cue instead. */
+let audioCtx;
+function beep(){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+    [0,0.18].forEach(off=>{
+      const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+      o.frequency.value=880; o.type='sine'; o.connect(g); g.connect(audioCtx.destination);
+      const t=audioCtx.currentTime+off;
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(0.28,t+0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+0.15);
+      o.start(t); o.stop(t+0.16);
+    });
+  }catch(e){}
+  if(navigator.vibrate) navigator.vibrate([120,60,120]);
+}
+
+/* ============================================================ rest timer */
+const Timer = (()=>{
+  let end=0, total=0, tick=null, fired=false;
+  function paint(){
+    const left = Math.max(0, end - Date.now());
+    const s = Math.ceil(left/1000);
+    $('#timerT').textContent = Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+    $('#timerBar').style.width = total ? (left/total*100)+'%' : '0%';
+    if(left<=0 && !fired){ fired=true; beep(); $('#timer').classList.add('done');
+      $('#timerT').textContent='go'; }
+    if(left<=0 && Date.now()-end > 25000) stop();
+  }
+  return {
+    start(sec){
+      if(!sec) return;
+      total=sec*1000; end=Date.now()+total; fired=false;
+      $('#timer').classList.add('on'); $('#timer').classList.remove('done');
+      clearInterval(tick); tick=setInterval(paint,250); paint();
+    },
+    stop(){ clearInterval(tick); tick=null; $('#timer').classList.remove('on','done'); }
+  };
+})();
+$('#timerSkip').onclick = ()=>Timer.stop();
+
+/* ============================================================ sheet */
+function sheet(nodes){
+  const b = $('#sheetBody'); b.innerHTML='';
+  (Array.isArray(nodes)?nodes:[nodes]).forEach(n=>b.appendChild(n));
+  $('#sheet').classList.add('open');
+}
+function closeSheet(){ $('#sheet').classList.remove('open'); }
+$('#sheet').onclick = e => { if(e.target.id==='sheet') closeSheet(); };
+
+function stepper(label, value, step, min, onDone, unit){
+  const wrap = el('div');
+  wrap.appendChild(el('div','muted',label));
+  const row = el('div','stepper');
+  const minus = el('button',null,'−'), n = el('div','n'), plus = el('button',null,'+');
+  let v = value;
+  const show = ()=> n.textContent = (Math.round(v*100)/100) + (unit?' '+unit:'');
+  show();
+  minus.onclick = ()=>{ v=Math.max(min, +(v-step).toFixed(2)); show(); };
+  plus.onclick  = ()=>{ v=+(v+step).toFixed(2); show(); };
+  let hold;
+  [[minus,-1],[plus,1]].forEach(([btn,dir])=>{
+    btn.addEventListener('touchstart', ()=>{ hold=setTimeout(function rep(){
+      v=Math.max(min,+(v+dir*step).toFixed(2)); show(); hold=setTimeout(rep,90); },420); },{passive:true});
+    ['touchend','touchcancel'].forEach(ev=>btn.addEventListener(ev,()=>clearTimeout(hold)));
+  });
+  row.append(minus,n,plus); wrap.appendChild(row);
+  const ok = el('button','btn','Save'); ok.onclick = ()=>{ onDone(v); closeSheet(); };
+  wrap.appendChild(ok);
+  return wrap;
+}
+
+/* ============================================================ session */
+async function ensureSession(fromPlan){
+  if(SESSION) return SESSION;
+  SESSION = {
+    session_id: nowISO(),
+    date: today(),
+    started_at: nowISO(),
+    from_plan: !!fromPlan,
+    session_rpe: null,
+    notes: '',
+    sets: []
+  };
+  await DB.set('session', SESSION);
+  return SESSION;
+}
+
+async function logSet(exercise_id, weight, reps, rir, setType){
+  await ensureSession(true);
+  const idx = SESSION.sets.filter(s=>s.exercise_id===exercise_id).length + 1;
+  SESSION.sets.push({
+    exercise_id, set_index: idx, set_type: setType||'working',
+    weight_kg: weight, reps, rir: rir===undefined?null:rir, logged_at: nowISO()
+  });
+  await DB.set('session', SESSION);
+  render();
+}
+
+async function undoLast(exercise_id){
+  if(!SESSION) return;
+  for(let i=SESSION.sets.length-1;i>=0;i--){
+    if(SESSION.sets[i].exercise_id===exercise_id){ SESSION.sets.splice(i,1); break; }
+  }
+  await DB.set('session', SESSION);
+  render();
+}
+
+async function finishSession(rpe){
+  if(!SESSION) return;
+  SESSION.ended_at = nowISO();
+  SESSION.duration_min = Math.round((new Date(SESSION.ended_at)-new Date(SESSION.started_at))/60000);
+  SESSION.session_rpe = rpe;
+  await enqueue({action:'save_session', session: SESSION});
+  SESSION = null;
+  await DB.del('session');
+  toast('Session saved');
+  go('today');
+}
+
+/* ============================================================ views */
+let TAB = 'today';
+
+function go(tab){
+  TAB = tab;
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on', b.dataset.tab===tab));
+  render();
+}
+document.querySelectorAll('nav button').forEach(b=> b.onclick = ()=>go(b.dataset.tab));
+
+function render(){
+  const v = $('#view'); v.innerHTML='';
+  ({today:vToday, log:vQuick, body:vBody, more:vMore})[TAB](v);
+}
+
+function emptyState(v, msg, sub, btn){
+  const d = el('div','empty');
+  d.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>';
+  d.appendChild(el('div',null,msg));
+  if(sub) d.appendChild(el('div','tiny',sub));
+  v.appendChild(d);
+  if(btn) v.appendChild(btn);
+}
+
+/* ---------- Today ---------- */
+function vToday(v){
+  $('#title').textContent = 'Today';
+  if(!CFG.ready){
+    const b = el('button','btn','Set up sync'); b.onclick=()=>go('more');
+    return emptyState(v,'Not connected yet','Add your endpoint URL and token in More.',b);
+  }
+  const plan = STATE && STATE.next_session;
+  const hasPlan = plan && Array.isArray(plan.blocks) && plan.blocks.length;
+
+  if(!hasPlan){
+    const b = el('button','btn','Start a freestyle session'); b.onclick=()=>go('log');
+    emptyState(v,'No session planned',
+      'Ask Claude to plan your next session, or log freestyle.',b);
+    if(SESSION && SESSION.sets.length) v.appendChild(finishCard());
+    return;
+  }
+
+  if(plan.coach_note){
+    const c = el('div','card');
+    c.appendChild(el('div','muted', plan.coach_note));
+    v.appendChild(c);
+  }
+
+  if(Array.isArray(plan.mobility_warmup) && plan.mobility_warmup.length){
+    const c = el('div','card');
+    c.appendChild(el('h3',null,'Warm-up'));
+    plan.mobility_warmup.forEach(m=>{
+      const p=el('div','muted', '• '+m.name + (m.duration_sec?` — ${m.duration_sec}s`:''));
+      c.appendChild(p);
+    });
+    v.appendChild(c);
+  }
+
+  plan.blocks.forEach(b => v.appendChild(exerciseCard(b)));
+  v.appendChild(finishCard());
+}
+
+function nameFor(id){
+  if(STATE && STATE.library && STATE.library.exercises){
+    const e = STATE.library.exercises.find(x=>x.exercise_id===id);
+    if(e) return e.name;
+  }
+  if(STATE && STATE.inventory && STATE.inventory.exercises){
+    const e = STATE.inventory.exercises.find(x=>x.exercise_id===id);
+    if(e) return e.name;
+  }
+  return id.replace(/_/g,' ');
+}
+
+function prefillFor(id){
+  const p = STATE && STATE.prefill && STATE.prefill[id];
+  return p && p.sets && p.sets.length ? p.sets : null;
+}
+
+function exerciseCard(b){
+  const card = el('div','card');
+  card.appendChild(el('h3',null, nameFor(b.exercise_id)));
+
+  const bits = [];
+  if(b.sets) bits.push(`${b.sets} sets`);
+  if(b.rep_range) bits.push(`${b.rep_range[0]}–${b.rep_range[1]} reps`);
+  if(b.target_rir!=null) bits.push(`RIR ${b.target_rir}`);
+  card.appendChild(el('div','prescribe', bits.join('  ·  ')));
+
+  const done = SESSION ? SESSION.sets.filter(s=>s.exercise_id===b.exercise_id) : [];
+  const pf = prefillFor(b.exercise_id);
+  const total = b.sets || Math.max(done.length+1, 3);
+
+  for(let i=0;i<total;i++){
+    const logged = done[i];
+    const row = el('div','setrow'+(logged?' done':''));
+    row.appendChild(el('div','setno', String(i+1)));
+
+    // Suggested values: last time's matching set, else the prescription.
+    const last = pf && pf[i] ? pf[i] : (pf ? pf[pf.length-1] : null);
+    let w = logged ? logged.weight_kg
+          : (last ? last.weight_kg : (b.prescribed_weight_kg ?? 0));
+    let r = logged ? logged.reps
+          : (last ? last.reps : (b.rep_range ? b.rep_range[1] : 8));
+
+    const wv = el('div','val'); wv.innerHTML = `<b>${w}</b><span>kg</span>`;
+    const rv = el('div','val'); rv.innerHTML = `<b>${r}</b><span>reps</span>`;
+
+    if(!logged){
+      wv.onclick = ()=> sheet(stepper('Weight', w, 2.5, 0, val=>{
+        w=val; wv.innerHTML=`<b>${w}</b><span>kg</span>`; }, 'kg'));
+      rv.onclick = ()=> sheet(stepper('Reps', r, 1, 1, val=>{
+        r=val; rv.innerHTML=`<b>${r}</b><span>reps</span>`; }));
+    }
+
+    const tick = el('button','tick');
+    tick.innerHTML = '<svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg>';
+    tick.onclick = async ()=>{
+      if(logged){ await undoLast(b.exercise_id); return; }
+      await logSet(b.exercise_id, w, r, b.target_rir ?? null, 'working');
+      Timer.start(b.rest_sec || 120);
+    };
+
+    row.append(wv,rv,tick);
+    card.appendChild(row);
+  }
+
+  if(b.note) card.appendChild(el('div','tiny', b.note));
+  return card;
+}
+
+function finishCard(){
+  const c = el('div','card');
+  const n = SESSION ? SESSION.sets.length : 0;
+  c.appendChild(el('div','muted', n ? `${n} sets logged` : 'Nothing logged yet'));
+  const b = el('button','btn', 'Finish session');
+  b.disabled = !n;
+  b.onclick = ()=>{
+    const w = el('div');
+    w.appendChild(el('div','muted','How hard was that overall?'));
+    const g = el('div'); g.style.cssText='display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:12px 0';
+    [5,6,7,8,9].forEach(rpe=>{
+      const x = el('button','btn ghost', String(rpe));
+      x.onclick = ()=>{ closeSheet(); finishSession(rpe); };
+      g.appendChild(x);
+    });
+    w.appendChild(g);
+    w.appendChild(el('div','tiny','5 = easy, 7 = solid work, 9 = nearly everything you had.'));
+    sheet(w);
+  };
+  c.appendChild(b);
+  if(n){
+    const d = el('button','btn danger','Discard session');
+    d.onclick = async ()=>{ SESSION=null; await DB.del('session'); toast('Discarded'); render(); };
+    c.appendChild(d);
+  }
+  return c;
+}
+
+/* ---------- Quick log ---------- */
+function vQuick(v){
+  $('#title').textContent = 'Quick log';
+  const lib = (STATE && STATE.library && STATE.library.exercises) || [];
+  const inv = (STATE && STATE.inventory && STATE.inventory.exercises) || [];
+  const pool = inv.length ? inv : lib;
+
+  if(!pool.length){
+    return emptyState(v,'No exercise list yet','Sync once with Claude to load the exercise library.');
+  }
+
+  const search = el('input'); search.placeholder='Search exercise'; search.type='search';
+  const f = el('div','field'); f.appendChild(search); v.appendChild(f);
+  const list = el('div','list'); v.appendChild(list);
+
+  function paint(q){
+    list.innerHTML='';
+    pool.filter(e=>!q || e.name.toLowerCase().includes(q.toLowerCase()))
+        .slice(0,40).forEach(e=>{
+      const b = el('button');
+      const m = Object.entries(e.muscles||{})
+        .sort((a,b)=>b[1]-a[1]).slice(0,3)
+        .map(([k])=>k.replace(/_/g,' ')).join(' · ');
+      b.innerHTML = `<div>${esc(e.name)}</div><div class="tiny">${esc(m)}</div>`;
+      b.onclick = ()=> quickSheet(e);
+      list.appendChild(b);
+    });
+  }
+  search.oninput = ()=>paint(search.value);
+  paint('');
+
+  if(SESSION && SESSION.sets.length) v.appendChild(finishCard());
+}
+
+function quickSheet(e){
+  const pf = prefillFor(e.exercise_id);
+  let w = pf ? pf[pf.length-1].weight_kg : 20;
+  let r = pf ? pf[pf.length-1].reps : (e.default_rep_range ? e.default_rep_range[1] : 10);
+  const wrap = el('div');
+  wrap.appendChild(el('h3',null,e.name));
+  if(pf) wrap.appendChild(el('div','tiny', `Last time: ${pf.map(s=>s.weight_kg+'kg × '+s.reps).join(',  ')}`));
+
+  const row = el('div','row2'); row.style.margin='14px 0';
+  const wb = el('button','btn ghost'), rb = el('button','btn ghost');
+  const showW = ()=> wb.textContent = w+' kg';
+  const showR = ()=> rb.textContent = r+' reps';
+  showW(); showR();
+  wb.onclick = ()=> sheet(stepper('Weight', w, 2.5, 0, val=>{ w=val; quickSheetReopen(e,w,r); },'kg'));
+  rb.onclick = ()=> sheet(stepper('Reps', r, 1, 1, val=>{ r=val; quickSheetReopen(e,w,r); }));
+  row.append(wb,rb); wrap.appendChild(row);
+
+  const add = el('button','btn','Log set');
+  add.onclick = async ()=>{
+    await logSet(e.exercise_id, w, r, null, 'working');
+    Timer.start(e.default_rest_sec || 120);
+    toast('Set logged');
+    closeSheet();
+  };
+  wrap.appendChild(add);
+  sheet(wrap);
+}
+function quickSheetReopen(e,w,r){
+  const pf = prefillFor(e.exercise_id);
+  const wrap = el('div');
+  wrap.appendChild(el('h3',null,e.name));
+  if(pf) wrap.appendChild(el('div','tiny', `Last time: ${pf.map(s=>s.weight_kg+'kg × '+s.reps).join(',  ')}`));
+  const row = el('div','row2'); row.style.margin='14px 0';
+  const wb = el('button','btn ghost', w+' kg'), rb = el('button','btn ghost', r+' reps');
+  wb.onclick = ()=> sheet(stepper('Weight', w, 2.5, 0, val=>quickSheetReopen(e,val,r),'kg'));
+  rb.onclick = ()=> sheet(stepper('Reps', r, 1, 1, val=>quickSheetReopen(e,w,val)));
+  row.append(wb,rb); wrap.appendChild(row);
+  const add = el('button','btn','Log set');
+  add.onclick = async ()=>{ await logSet(e.exercise_id,w,r,null,'working');
+    Timer.start(e.default_rest_sec||120); toast('Set logged'); closeSheet(); };
+  wrap.appendChild(add);
+  sheet(wrap);
+}
+
+/* ---------- Body ---------- */
+function vBody(v){
+  $('#title').textContent = 'Body';
+  const recent = (STATE && STATE.recent_metrics) || [];
+  const t = recent.find(e=>e.date===today()) || {};
+
+  const c = el('div','card');
+  c.appendChild(el('h3',null,'Today'));
+  c.appendChild(el('div','prescribe', today()));
+
+  const f1 = el('div','field');
+  f1.appendChild(el('label',null,'Bodyweight (kg) — morning, after the toilet, before food'));
+  const wi = el('input'); wi.type='number'; wi.step='0.1'; wi.inputMode='decimal';
+  wi.placeholder='80.0'; if(t.weight_kg!=null) wi.value=t.weight_kg;
+  f1.appendChild(wi); c.appendChild(f1);
+
+  const target = (STATE && STATE.profile && STATE.profile.goals
+                  && STATE.profile.goals.protein && STATE.profile.goals.protein.target_g_today) || 160;
+  const f2 = el('div','field');
+  f2.appendChild(el('label',null,`Protein (g) — target ${target}`));
+  const pi = el('input'); pi.type='number'; pi.step='1'; pi.inputMode='numeric';
+  pi.placeholder=String(target); if(t.protein_g!=null) pi.value=t.protein_g;
+  f2.appendChild(pi); c.appendChild(f2);
+
+  const f3 = el('div','field');
+  f3.appendChild(el('label',null,'Sleep (hours)'));
+  const si = el('input'); si.type='number'; si.step='0.5'; si.inputMode='decimal';
+  si.placeholder='7.5'; if(t.sleep_hours!=null) si.value=t.sleep_hours;
+  f3.appendChild(si); c.appendChild(f3);
+
+  const save = el('button','btn','Save');
+  save.onclick = async ()=>{
+    const entry = {date: today(), logged_at: nowISO()};
+    if(wi.value!=='') entry.weight_kg = parseFloat(wi.value);
+    if(pi.value!=='') entry.protein_g = parseInt(pi.value,10);
+    if(si.value!=='') entry.sleep_hours = parseFloat(si.value);
+    if(Object.keys(entry).length<=2) return toast('Nothing to save');
+    await enqueue({action:'save_metrics', entry});
+    toast('Saved');
+  };
+  c.appendChild(save);
+  v.appendChild(c);
+
+  // InBody: separate, deliberately not daily
+  const ib = el('div','card');
+  ib.appendChild(el('h3',null,'InBody reading'));
+  ib.appendChild(el('div','prescribe','Weekly at most. Same conditions every time or it is noise.'));
+  const fields = [
+    ['skeletal_muscle_mass_kg','Skeletal muscle mass (kg)','0.1'],
+    ['percent_body_fat','Body fat (%)','0.1'],
+    ['ecw_tbw_ratio','ECW/TBW ratio','0.001']
+  ];
+  const inputs = {};
+  fields.forEach(([k,label,step])=>{
+    const f = el('div','field'); f.appendChild(el('label',null,label));
+    const i = el('input'); i.type='number'; i.step=step; i.inputMode='decimal';
+    inputs[k]=i; f.appendChild(i); ib.appendChild(f);
+  });
+  const ibSave = el('button','btn ghost','Save InBody');
+  ibSave.onclick = async ()=>{
+    const inbody = {};
+    let any=false;
+    for(const k in inputs){ if(inputs[k].value!==''){ inbody[k]=parseFloat(inputs[k].value); any=true; } }
+    if(!any) return toast('Nothing to save');
+    await enqueue({action:'save_metrics', entry:{date: today(), inbody}});
+    toast('InBody saved');
+  };
+  ib.appendChild(ibSave);
+  ib.appendChild(el('div','tiny','Muscle mass is the number that matters on a bulk. Body fat % from any BIA device has wide error bars — trust the direction over weeks, not the digit.'));
+  v.appendChild(ib);
+
+  if(recent.length>1){
+    const h = el('div','card');
+    h.appendChild(el('h3',null,'Recent weight'));
+    const vals = recent.filter(e=>e.weight_kg!=null).slice(-14);
+    if(vals.length){
+      const avg = vals.slice(-7).reduce((a,b)=>a+b.weight_kg,0)/Math.min(7,vals.length);
+      h.appendChild(el('div','muted', `7-day average: ${avg.toFixed(2)} kg`));
+      h.appendChild(el('div','tiny','This average is what decisions are made on, never a single day.'));
+      vals.slice().reverse().forEach(e=>{
+        h.appendChild(el('div','tiny', `${e.date}   ${e.weight_kg} kg` +
+          (e.protein_g!=null?`   ·   ${e.protein_g}g protein`:'')));
+      });
+    }
+    v.appendChild(h);
+  }
+}
+
+/* ---------- More ---------- */
+function vMore(v){
+  $('#title').textContent = 'More';
+
+  const c = el('div','card');
+  c.appendChild(el('h3',null,'Sync'));
+  const f1 = el('div','field');
+  f1.appendChild(el('label',null,'Endpoint URL (ends in /exec)'));
+  const u = el('input'); u.value=CFG.url; u.placeholder='https://script.google.com/macros/s/…/exec';
+  u.autocapitalize='off'; u.autocorrect='off'; u.spellcheck=false;
+  f1.appendChild(u); c.appendChild(f1);
+  const f2 = el('div','field');
+  f2.appendChild(el('label',null,'Token'));
+  const t = el('input'); t.value=CFG.token; t.autocapitalize='off'; t.autocorrect='off'; t.spellcheck=false;
+  f2.appendChild(t); c.appendChild(f2);
+
+  const save = el('button','btn','Save and test');
+  save.onclick = async ()=>{
+    CFG.url = u.value.trim().replace(/\/+$/,''); CFG.token = t.value.trim();
+    save.textContent='Testing…'; save.disabled=true;
+    try{ STATE = await pullState(); toast('Connected'); go('today'); }
+    catch(e){ toast('Failed: '+e.message); }
+    finally{ save.textContent='Save and test'; save.disabled=false; }
+  };
+  c.appendChild(save);
+  v.appendChild(c);
+
+  const s = el('div','card');
+  s.appendChild(el('h3',null,'Status'));
+  s.appendChild(el('div','muted', navigator.onLine ? 'Online' : 'Offline'));
+  s.appendChild(el('div','muted', QUEUED ? `${QUEUED} writes waiting to sync` : 'Everything synced'));
+  if(STATE) s.appendChild(el('div','tiny', `${STATE.session_count||0} sessions on record`));
+  if(SESSION) s.appendChild(el('div','tiny', `Session in progress: ${SESSION.sets.length} sets`));
+  const r = el('button','btn ghost','Refresh from Drive');
+  r.onclick = async ()=>{
+    try{ STATE = await pullState(); await flush(); toast('Refreshed'); render(); }
+    catch(e){ toast('Failed: '+e.message); }
+  };
+  s.appendChild(r);
+  v.appendChild(s);
+
+  const i = el('div','card');
+  i.appendChild(el('h3',null,'Install'));
+  i.appendChild(el('div','muted','Share → Add to Home Screen. Do this: an installed web app keeps its own storage timer on iOS, a browser tab does not.'));
+  v.appendChild(i);
+}
+
+/* ============================================================ boot */
+window.addEventListener('online',  ()=>{ paintNet(); flush(); });
+window.addEventListener('offline', paintNet);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ flush(); } });
+
+(async function boot(){
+  SESSION = await DB.get('session') || null;
+  STATE   = await DB.get('state')   || null;
+  QUEUED  = await DB.count();
+  paintNet();
+  render();
+  if(CFG.ready){
+    flush();
+    try{ STATE = await pullState(); render(); }
+    catch(e){ /* offline is fine, cached state is already rendered */ }
+  }
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+})();
+</script>
+</body>
+</html>
